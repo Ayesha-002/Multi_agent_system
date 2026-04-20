@@ -1,6 +1,6 @@
 # Multi-Agent Orchestration System
 
-A production-quality multi-agent system where a **Supervisor** orchestrates a **Data Agent** (internal SQLite) and a **Web Agent** (real-time web search via Anthropic) to answer natural language queries with synthesized insights.
+A production-quality multi-agent system where a **Supervisor** orchestrates a **Data Agent** (internal SQLite) and a **Web Agent** (real-time web search via LLM) to answer natural language queries with synthesized insights.
 
 ---
 
