@@ -71,7 +71,7 @@ cd multi-agent-system
 npm install
 
 # Create .env file
-echo "ANTHROPIC_API_KEY=sk-ant-your-key-here" > .env
+echo "GROQ_API_KEY=sk-ant-your-key-here" > .env
 
 # Verify database
 node scripts/testDb.js
