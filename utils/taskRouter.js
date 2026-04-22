@@ -31,7 +31,7 @@ Given a user query, break it into atomic sub-tasks. For each sub-task, determine
   * "data" → requires internal company data (employees, salaries, departments, projects, performance)
   * "web"  → requires external/industry data (benchmarks, market rates, public statistics, news)
   * "both" → requires both internal and external data
-
+  * "generic" → general reasoning, explanation, summarization, or queries that do NOT require internal or external data
 Return ONLY a valid JSON array. No explanation, no markdown fences, no preamble.
 
 Schema for each task:
@@ -39,7 +39,7 @@ Schema for each task:
   "id": "task_1",
   "intent": "short intent label (e.g., 'internal_average_salary')",
   "description": "what data to fetch",
-  "agent": "data" | "web" | "both",
+  "agent": "data" | "web" | "both" | "generic",
   "priority": 1,
   "filters": {
     "department": "string or null",
@@ -54,7 +54,11 @@ Rules:
 3. If "both", create TWO tasks: one for "data", one for "web"
 4. Be specific in description — it will be given verbatim to the agent
 5. If the query only needs one agent, create just one task
-6. Maximum 4 tasks total
+6. If the query includes:
+   - "explain", "define", "what is", "why", "how"
+   → use "generic"
+7. Maximum 4 tasks total
+8. Use "generic" when the query is conceptual, explanatory, or analytical and does not require fetching real data
 
 Example output for "How does our team's salary compare to industry benchmarks?":
 [
@@ -73,6 +77,14 @@ Example output for "How does our team's salary compare to industry benchmarks?":
     "agent": "web",
     "priority": 2,
     "filters": { "role": "software engineer", "department": "engineering", "level": null }
+  },
+  {
+    "id": "task_3",
+    "intent": "explain_employee_turnover",
+    "description": "explain the concept of employee turnover, including types and importance in business",
+    "agent": "generic",
+    "priority": 1,
+    "filters": { "department": null, "level": null, "role": null }
   }
 ]`;
 

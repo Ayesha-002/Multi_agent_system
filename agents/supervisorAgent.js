@@ -18,6 +18,7 @@ const dataAgent  = require('./dataAgent');
 const webAgent   = require('./webAgent');
 const { decomposeQuery } = require('../utils/taskRouter');
 const { log }    = require('../utils/logger');
+const genericAgent = require('./genericAgent');
 const fetch = (...args) => import('node-fetch').then(m => m.default(...args));
 
 // Groq: free OpenAI-compatible API
@@ -55,6 +56,9 @@ async function dispatchTask(task) {
   if (task.agent === 'web') {
     return { taskId: task.id, agent: 'web',  result: await webAgent.run(task) };
   }
+  if (task.agent === 'generic') {
+    return { taskId: task.id, agent: 'generic', result: await genericAgent.run(task) };
+  }
 
   throw new Error(`Unknown agent type: ${task.agent}`);
 }
@@ -66,7 +70,7 @@ async function synthesize(userQuery, agentResults) {
 
   const internalResults = agentResults.filter(r => r.agent === 'data').map(r => r.result);
   const externalResults = agentResults.filter(r => r.agent === 'web').map(r => r.result);
-
+  const genericResults = agentResults.filter(r => r.agent === 'generic').map(r => r.result);
   const userMessage = `
 ## Original Query
 ${userQuery}
@@ -76,6 +80,9 @@ ${JSON.stringify(internalResults, null, 2)}
 
 ## External Data (from web research)
 ${JSON.stringify(externalResults, null, 2)}
+
+## General Insights
+${JSON.stringify(genericResults, null, 2)}
 
 Please synthesize these into a comprehensive, insightful answer.
 `;

@@ -27,9 +27,10 @@ async function main() {
     // Summary stats
     const dataTaskCount = result.tasks.filter(t => t.agent === 'data').length;
     const webTaskCount  = result.tasks.filter(t => t.agent === 'web').length;
+    const genericTaskCount = result.tasks.filter(t => t.agent === 'generic').length;
 
     log.header('Execution Summary');
-    log.agent('Summary', `Total tasks: ${result.tasks.length} (${dataTaskCount} data, ${webTaskCount} web)`);
+    log.agent('Summary', `Total tasks: ${result.tasks.length} (${dataTaskCount} data, ${webTaskCount} web, ${genericTaskCount} generic)`);
     log.agent('Summary', `Data queries run: ${
       result.agentResults
         .filter(r => r.agent === 'data')
