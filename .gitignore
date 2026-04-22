@@ -1,4 +1,7 @@
-# Node modules
+
+# -------------------------
+# Node.js
+# -------------------------
 node_modules/
 
 # Environment variables
@@ -26,6 +29,25 @@ coverage/
 # Debug / temp
 tmp/
 temp/
+.cache/
+
 
 # VS Code
 .vscode/
+.idea/
+
+
+
+
+# -------------------------
+# Frontend (Vite)
+# -------------------------
+multi-agent-ui/node_modules/
+multi-agent-ui/dist/
+
+# -------------------------
+# Misc
+# -------------------------
+*.pid
+*.seed
+*.pid.lock
