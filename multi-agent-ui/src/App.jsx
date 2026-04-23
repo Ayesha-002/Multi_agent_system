@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import {
   Bot,
@@ -13,16 +13,24 @@ import {
   Clock3,
   ChevronRight,
   BarChart3,
+  PanelLeftOpen,
+  History,
+  Command,
+  Stars,
 } from 'lucide-react';
+import AgentTimeline from './components/AgentTimeline';
+import HistorySidebar from './components/HistorySidebar';
 
 const API_BASE = 'http://localhost:3001';
+const HISTORY_STORAGE_KEY = 'multi-agent-ui-query-history';
+const MAX_HISTORY = 12;
 
 const EXAMPLE_QUERIES = [
   "How does our team's average salary compare to industry standards?",
-  "What is the average salary of our senior engineers and how does it compare to market rates?",
-  "Give me a full overview of our engineering department including salaries and compare to industry benchmarks",
-  "Explain employee turnover and why it matters",
-  "How can we improve team productivity?",
+  'What is the average salary of our senior engineers and how does it compare to market rates?',
+  'Give me a full overview of our engineering department including salaries and compare to industry benchmarks',
+  'Explain employee turnover and why it matters',
+  'How can we improve team productivity?',
 ];
 
 const AGENT_META = {
@@ -65,47 +73,101 @@ function cn(...classes) {
   return classes.filter(Boolean).join(' ');
 }
 
+function getInitialHistory() {
+  if (typeof window === 'undefined') return [];
+
+  try {
+    const saved = window.localStorage.getItem(HISTORY_STORAGE_KEY);
+    if (!saved) return [];
+    const parsed = JSON.parse(saved);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function persistHistory(history) {
+  if (typeof window === 'undefined') return;
+  window.localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(history));
+}
+
 function SectionCard({ title, right, children, className = '' }) {
   return (
     <div className={cn(
-      'rounded-3xl border border-white/10 bg-white/5 backdrop-blur-xl shadow-[0_10px_60px_rgba(0,0,0,0.35)]',
+      'relative overflow-hidden rounded-3xl border border-white/10 bg-white/5 backdrop-blur-2xl shadow-[0_12px_80px_rgba(2,8,23,0.45)]',
       className
     )}>
-      <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
+      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),transparent_30%)]" />
+      <div className="relative flex items-center justify-between gap-4 border-b border-white/10 px-5 py-4">
         <h2 className="text-sm font-semibold tracking-wide text-white/90">{title}</h2>
         {right}
       </div>
-      <div className="p-5">{children}</div>
+      <div className="relative p-5">{children}</div>
     </div>
   );
 }
 
-function TopBar() {
+function TopBar({ onToggleHistory, historyCount }) {
   return (
-    <div className="flex items-center justify-between gap-4">
-      <div>
-        <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-xs font-medium text-cyan-200">
-          <Bot className="h-3.5 w-3.5" />
-          Multi-Agent Orchestration Dashboard
-        </div>
-        <h1 className="mt-3 text-3xl font-semibold tracking-tight text-white">
-          Intelligent Agent Control Center
-        </h1>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">
-          Run natural language queries through your Supervisor, Data, Web, and Generic agents with a clean,
-          observable UI.
-        </p>
-      </div>
+    <div className="relative overflow-hidden rounded-[28px] border border-white/10 bg-white/5 px-5 py-5 backdrop-blur-2xl shadow-[0_16px_90px_rgba(2,8,23,0.5)] sm:px-6">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.12),transparent_26%),radial-gradient(circle_at_bottom_right,rgba(168,85,247,0.16),transparent_26%)]" />
 
-      <div className="hidden min-w-[240px] rounded-3xl border border-white/10 bg-white/5 p-4 backdrop-blur-xl lg:block">
-        <div className="text-xs uppercase tracking-[0.18em] text-slate-400">System Mode</div>
-        <div className="mt-2 flex items-center gap-2 text-sm text-white">
-          <Brain className="h-4 w-4 text-cyan-300" />
-          Supervisor Orchestration Active
+      <div className="relative flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+        <div className="max-w-3xl">
+          <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-xs font-medium text-cyan-200">
+            <Bot className="h-3.5 w-3.5" />
+            Multi-Agent Orchestration Dashboard
+          </div>
+
+          <h1 className="mt-4 text-3xl font-semibold tracking-tight text-white sm:text-4xl">
+            Intelligent Agent Control Center
+          </h1>
+          <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-300 sm:text-[15px]">
+            Run natural language queries through your Supervisor, Data, Web, and Generic agents with a more observable,
+            timeline-aware, dark glass interface.
+          </p>
+
+          <div className="mt-4 flex flex-wrap gap-2">
+            <MetricChip icon={Command} label="Routing" value="Supervisor active" />
+            <MetricChip icon={Stars} label="Theme" value="Dark glass" />
+            <MetricChip icon={History} label="History" value={`${historyCount} saved`} />
+          </div>
         </div>
-        <div className="mt-3 text-xs text-slate-300">
-          Internal and external data boundaries are preserved by agent-level separation.
+
+        <div className="flex flex-col gap-3 sm:flex-row lg:flex-col lg:items-end">
+          <button
+            onClick={onToggleHistory}
+            className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/10 px-4 py-3 text-sm font-medium text-white transition hover:border-cyan-400/30 hover:bg-cyan-400/10"
+          >
+            <PanelLeftOpen className="h-4 w-4 text-cyan-300" />
+            Query History
+          </button>
+
+          <div className="min-w-[260px] rounded-3xl border border-white/10 bg-black/15 p-4 backdrop-blur-xl">
+            <div className="text-xs uppercase tracking-[0.18em] text-slate-400">System Mode</div>
+            <div className="mt-2 flex items-center gap-2 text-sm text-white">
+              <Brain className="h-4 w-4 text-cyan-300" />
+              Supervisor Orchestration Active
+            </div>
+            <div className="mt-3 text-xs leading-6 text-slate-300">
+              Internal and external data boundaries remain preserved while the UI now surfaces execution history and flow.
+            </div>
+          </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function MetricChip({ icon: Icon, label, value }) {
+  return (
+    <div className="inline-flex items-center gap-3 rounded-2xl border border-white/10 bg-black/15 px-3 py-2 text-sm">
+      <div className="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-white/5">
+        <Icon className="h-4 w-4 text-cyan-300" />
+      </div>
+      <div>
+        <div className="text-[10px] uppercase tracking-[0.18em] text-slate-400">{label}</div>
+        <div className="text-sm text-white">{value}</div>
       </div>
     </div>
   );
@@ -123,21 +185,21 @@ function QueryComposer({ query, setQuery, onRun, loading }) {
       }
     >
       <div className="flex flex-col gap-4">
-        <div className="rounded-3xl border border-white/10 bg-[#08111d]/80 p-3">
+        <div className="rounded-[26px] border border-white/10 bg-[#07111d]/80 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
           <textarea
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Ask about salaries, benchmarks, explanations, recommendations..."
-            className="min-h-[120px] w-full resize-none rounded-2xl border-none bg-transparent p-3 text-sm leading-6 text-white outline-none placeholder:text-slate-500"
+            className="min-h-[140px] w-full resize-none rounded-2xl border-none bg-transparent p-3 text-sm leading-7 text-white outline-none placeholder:text-slate-500"
           />
-          <div className="mt-3 flex items-center justify-between gap-3 border-t border-white/10 pt-3">
-            <div className="text-xs text-slate-400">
+          <div className="mt-3 flex flex-col gap-3 border-t border-white/10 pt-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="text-xs leading-6 text-slate-400">
               The Supervisor will split the query and route it to the correct agents.
             </div>
             <button
               onClick={onRun}
               disabled={loading || !query.trim()}
-              className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 px-4 py-2 text-sm font-medium text-white shadow-lg shadow-cyan-900/30 transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-500 via-sky-500 to-blue-600 px-4 py-2.5 text-sm font-medium text-white shadow-lg shadow-cyan-950/40 transition hover:scale-[1.01] hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
               {loading ? 'Running...' : 'Run Query'}
@@ -170,7 +232,7 @@ function AgentStatusRail({ loading, result }) {
 
   return (
     <SectionCard title="Agent Activity">
-      <div className="grid gap-3 md:grid-cols-3">
+      <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-1 2xl:grid-cols-3">
         {agents.map((agentKey) => {
           const meta = AGENT_META[agentKey];
           const Icon = meta.icon;
@@ -180,7 +242,7 @@ function AgentStatusRail({ loading, result }) {
             <div
               key={agentKey}
               className={cn(
-                'relative overflow-hidden rounded-3xl border bg-white/5 p-4',
+                'relative overflow-hidden rounded-3xl border bg-white/5 p-4 transition hover:-translate-y-0.5 hover:border-white/20',
                 meta.border,
                 isActive ? `ring-1 ${meta.ring}` : 'border-white/10'
               )}
@@ -255,7 +317,7 @@ function TaskBreakdown({ tasks = [] }) {
             return (
               <div
                 key={task.id || idx}
-                className="rounded-2xl border border-white/10 bg-black/20 p-4"
+                className="rounded-2xl border border-white/10 bg-black/20 p-4 transition hover:border-white/20"
               >
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="flex items-center gap-3">
@@ -476,16 +538,49 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [result, setResult] = useState(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [history, setHistory] = useState(getInitialHistory);
+  const [timelineKey, setTimelineKey] = useState(0);
+
+  useEffect(() => {
+    persistHistory(history);
+  }, [history]);
 
   const normalized = useMemo(() => normalizeResult(result), [result]);
-
   const dataResults = (normalized?.agentResults || []).filter((r) => r.agent === 'data');
   const webResults = (normalized?.agentResults || []).filter((r) => r.agent === 'web');
   const genericResults = (normalized?.agentResults || []).filter((r) => r.agent === 'generic');
 
+  function pushHistoryEntry(queryValue, normalizedResult) {
+    const entry = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      query: queryValue,
+      createdAt: new Date().toISOString(),
+      result: normalizedResult,
+    };
+
+    setHistory((prev) => {
+      const next = [entry, ...prev.filter((item) => item.query !== queryValue)].slice(0, MAX_HISTORY);
+      return next;
+    });
+  }
+
+  function handleSelectHistory(entry) {
+    setQuery(entry.query);
+    setResult(entry.result);
+    setError('');
+    setTimelineKey((value) => value + 1);
+    setHistoryOpen(false);
+  }
+
+  function clearHistory() {
+    setHistory([]);
+  }
+
   async function runQuery() {
     setLoading(true);
     setError('');
+    setTimelineKey((value) => value + 1);
 
     try {
       const response = await fetch(`${API_BASE}/api/run`, {
@@ -500,7 +595,11 @@ export default function App() {
         throw new Error(data.error || 'Failed to execute query');
       }
 
-      setResult(data);
+      const nextResult = normalizeResult(data);
+      setResult(nextResult);
+      pushHistoryEntry(query, nextResult);
+      setHistoryOpen(false);
+      setTimelineKey((value) => value + 1);
     } catch (err) {
       setError(err.message || 'Unknown frontend error');
       setResult(null);
@@ -510,12 +609,27 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen px-4 py-8 text-white sm:px-6 lg:px-8">
-      <div className="mx-auto flex max-w-7xl flex-col gap-6">
-        <TopBar />
+    <div className="relative min-h-screen overflow-hidden px-4 py-6 text-white sm:px-6 lg:px-8 lg:py-8">
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="glass-orb glass-orb-cyan" />
+        <div className="glass-orb glass-orb-violet" />
+        <div className="glass-grid" />
+      </div>
+
+      <HistorySidebar
+        open={historyOpen}
+        history={history}
+        onSelect={handleSelectHistory}
+        currentQuery={query}
+        onClose={() => setHistoryOpen(false)}
+        onClear={clearHistory}
+      />
+
+      <div className={cn('relative mx-auto flex max-w-7xl flex-col gap-6 transition-[padding-left] duration-300', historyOpen && 'md:pl-[320px]')}>
+        <TopBar onToggleHistory={() => setHistoryOpen((prev) => !prev)} historyCount={history.length} />
 
         {error && (
-          <div className="rounded-3xl border border-red-400/20 bg-red-500/10 p-4 text-sm text-red-200">
+          <div className="rounded-3xl border border-red-400/20 bg-red-500/10 p-4 text-sm text-red-200 shadow-[0_10px_60px_rgba(127,29,29,0.25)]">
             <div className="flex items-center gap-2 font-medium">
               <AlertCircle className="h-4 w-4" />
               Request failed
@@ -532,6 +646,13 @@ export default function App() {
               onRun={runQuery}
               loading={loading}
             />
+
+            <AgentTimeline
+              tasks={normalized?.tasks || []}
+              loading={loading}
+              resultKey={timelineKey}
+            />
+
             <FinalAnswer
               answer={normalized?.finalAnswer}
               elapsedMs={normalized?.elapsedMs}
